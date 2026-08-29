@@ -179,6 +179,10 @@ const config = async (env: Env): Promise<Configuration> => {
             from: path.resolve(process.cwd(), 'node_modules', 'maplibre-gl', 'dist', 'maplibre-gl-worker.mjs'),
             to: 'maplibre-gl-worker.js',
           },
+          {
+            from: path.resolve(process.cwd(), 'node_modules', 'maplibre-gl', 'dist', 'maplibre-gl-shared.mjs'),
+            to: 'maplibre-gl-shared.mjs',
+          },
         ],
       }),
       // Replace certain template-variables in the README and plugin.json
