@@ -1,5 +1,7 @@
 # Grafana GeoIP Map
 
+![Grafana GeoIP Map panel](docs/grafana-geoip-map.png)
+
 Панель для Grafana, которая получает IP-адреса из существующего datasource, определяет координаты через локальную базу MaxMind и отображает точки на карте. Менять MySQL datasource и сохранять координаты в базе не нужно.
 
 Проект состоит из:
