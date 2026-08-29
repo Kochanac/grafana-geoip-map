@@ -60,19 +60,29 @@ test -f ./GeoLite2-City.mmdb && echo "MMDB found"
 
 Плагин устанавливается в производный Docker image поверх вашего существующего образа. Данные и настройки Grafana при этом не изменяются.
 
+В `Dockerfile FROM` нельзя передавать локальный image ID вида `sha256:...`: BuildKit воспримет его как имя репозитория и попробует скачать из Docker Hub. Сначала присвоить существующему образу локальный тег:
+
+```bash
+docker tag \
+  sha256:845d83e1cf13d8b78b3061c95de03424b5d275ab45ecfdcff9dfd4cbfcddf1a8 \
+  grafana-base-local:12.2.0
+
+docker image inspect grafana-base-local:12.2.0 --format '{{.Id}}'
+```
+
 Находясь в каталоге `grafana-geoip-map`, создать локальный `.env`. Переменная `$PWD` автоматически запишет абсолютный путь текущего checkout:
 
 ```bash
 cat > .env <<EOF
 GEOIP_MAP_ROOT=$PWD
-GRAFANA_BASE_IMAGE=sha256:845d83e1cf13d8b78b3061c95de03424b5d275ab45ecfdcff9dfd4cbfcddf1a8
+GRAFANA_BASE_IMAGE=grafana-base-local:12.2.0
 GRAFANA_PUBLIC_ORIGIN=https://grafana.example.com
 GRAFANA_UNSIGNED_PLUGINS=local-geoipmap-panel
 GEOIP_MAX_BATCH_SIZE=1000
 EOF
 ```
 
-`GRAFANA_BASE_IMAGE` может быть обычным тегом, например `grafana/grafana:12.2.0`. Image ID работает, только если этот образ уже присутствует на Docker-хосте.
+Вместо локального тега можно указать исходный registry-тег, например `grafana/grafana:12.2.0`.
 
 Если в Grafana уже разрешены другие unsigned plugins, перечислить все ID через запятую:
 
@@ -121,8 +131,8 @@ services:
       context: ./grafana-geoip-map
       dockerfile: deploy/Dockerfile.grafana
       args:
-        # Можно указать тег или локальный image ID существующей Grafana.
-        GRAFANA_IMAGE: sha256:845d83e1cf13d8b78b3061c95de03424b5d275ab45ecfdcff9dfd4cbfcddf1a8
+        # Локальный image ID необходимо предварительно тегировать.
+        GRAFANA_IMAGE: grafana-base-local:12.2.0
     environment:
       # Сохранить остальные существующие environment-переменные.
       GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS: local-geoipmap-panel
