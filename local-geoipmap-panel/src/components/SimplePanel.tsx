@@ -76,8 +76,7 @@ const getStyles = () => ({
 function extractIPCounts(
   frames: DataFrame[],
   ipFieldName: string,
-  valueFieldName: string,
-  limit: number
+  valueFieldName: string
 ): Map<string, number> {
   const counts = new Map<string, number>();
 
@@ -98,14 +97,37 @@ function extractIPCounts(
       const rawValue = valueField?.values[index];
       const weight = typeof rawValue === 'number' && Number.isFinite(rawValue) ? rawValue : 1;
       counts.set(ip, (counts.get(ip) ?? 0) + weight);
-
-      if (counts.size >= limit) {
-        return counts;
-      }
     }
   }
 
   return counts;
+}
+
+async function lookupInBatches(
+  serviceUrl: string,
+  ips: string[],
+  batchSize: number,
+  signal: AbortSignal
+): Promise<GeoIPResult[]> {
+  const results: GeoIPResult[] = [];
+
+  for (let offset = 0; offset < ips.length; offset += batchSize) {
+    const response = await fetch(`${serviceUrl}/v1/lookup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ips: ips.slice(offset, offset + batchSize) }),
+      signal,
+    });
+
+    if (!response.ok) {
+      throw new Error((await response.text()) || `GeoIP service returned HTTP ${response.status}`);
+    }
+
+    const payload = (await response.json()) as LookupResponse;
+    results.push(...payload.results);
+  }
+
+  return results;
 }
 
 function escapeHTML(value: string): string {
@@ -150,12 +172,13 @@ export const SimplePanel: React.FC<Props> = ({ options, data, width, height }) =
   const styles = useStyles2(getStyles);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
+  const hasInitialFitRef = useRef(false);
   const [lookupResults, setLookupResults] = useState<GeoIPResult[]>([]);
   const [lookupError, setLookupError] = useState({ key: '', message: '' });
 
   const ipCounts = useMemo(
-    () => extractIPCounts(data.series, options.ipField, options.valueField, options.maxIPs),
-    [data.series, options.ipField, options.valueField, options.maxIPs]
+    () => extractIPCounts(data.series, options.ipField, options.valueField),
+    [data.series, options.ipField, options.valueField]
   );
   const ipKey = useMemo(() => Array.from(ipCounts.keys()).sort().join('\n'), [ipCounts]);
 
@@ -192,21 +215,11 @@ export const SimplePanel: React.FC<Props> = ({ options, data, width, height }) =
 
     const controller = new AbortController();
     const serviceUrl = options.serviceUrl.replace(/\/+$/, '');
+    const batchSize = Math.max(1, Math.floor(options.maxIPs || 1000));
 
-    fetch(`${serviceUrl}/v1/lookup`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ips: ipKey.split('\n') }),
-      signal: controller.signal,
-    })
-      .then(async (response) => {
-        if (!response.ok) {
-          throw new Error((await response.text()) || `GeoIP service returned HTTP ${response.status}`);
-        }
-        return (await response.json()) as LookupResponse;
-      })
-      .then((response) => {
-        setLookupResults(response.results);
+    lookupInBatches(serviceUrl, ipKey.split('\n'), batchSize, controller.signal)
+      .then((results) => {
+        setLookupResults(results);
         setLookupError({ key: ipKey, message: '' });
       })
       .catch((error: unknown) => {
@@ -220,7 +233,7 @@ export const SimplePanel: React.FC<Props> = ({ options, data, width, height }) =
       });
 
     return () => controller.abort();
-  }, [ipKey, options.serviceUrl]);
+  }, [ipKey, options.maxIPs, options.serviceUrl]);
 
   useEffect(() => {
     if (!containerRef.current) {
@@ -235,6 +248,7 @@ export const SimplePanel: React.FC<Props> = ({ options, data, width, height }) =
       attributionControl: {},
     });
     map.addControl(new maplibregl.NavigationControl(), 'top-right');
+    hasInitialFitRef.current = false;
 
     const popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false });
     const showPopup = (event: MapMouseEvent) => {
@@ -273,10 +287,11 @@ export const SimplePanel: React.FC<Props> = ({ options, data, width, height }) =
 
     const update = () => {
       addOrUpdateMarkers(map, points, options.markerColor, options.markerRadius);
-      if (points.features.length > 0) {
+      if (points.features.length > 0 && !hasInitialFitRef.current) {
         const bounds = new LngLatBounds();
         points.features.forEach((feature) => bounds.extend(feature.geometry.coordinates as [number, number]));
         map.fitBounds(bounds, { padding: 40, maxZoom: 8, duration: 0 });
+        hasInitialFitRef.current = true;
       }
     };
 

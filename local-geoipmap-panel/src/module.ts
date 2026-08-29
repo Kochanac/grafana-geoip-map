@@ -45,8 +45,8 @@ export const plugin = new PanelPlugin<GeoIPMapOptions>(SimplePanel).setPanelOpti
     })
     .addNumberInput({
       path: 'maxIPs',
-      name: 'Maximum unique IPs',
-      description: 'Protects the browser and service from unexpectedly large queries',
+      name: 'Lookup batch size',
+      description: 'All unique IPs are loaded in sequential requests of this size',
       defaultValue: 1000,
       settings: {
         min: 1,

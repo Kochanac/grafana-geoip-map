@@ -240,7 +240,8 @@ GROUP BY public_ip;
 - **IP field**: `ip`;
 - **Value field**: `requests`;
 - **GeoIP service URL**: `https://grafana.example.com/geoip`;
-- **Maximum unique IPs**: не больше `GEOIP_MAX_BATCH_SIZE`.
+- **Lookup batch size**: не больше `GEOIP_MAX_BATCH_SIZE`; панель загрузит все
+  уникальные IP последовательными запросами указанного размера.
 
 Панель поддерживает публичные IPv4 и IPv6. Приватные, loopback и некорректные адреса игнорируются.
 
