@@ -2,7 +2,7 @@ services:
   grafana:
     image: grafana-with-geoip-map:12.2.0
     build:
-      context: ${GEOIP_MAP_ROOT:-/opt/grafana-geoip-map}
+      context: ${GEOIP_MAP_ROOT:-.}
       dockerfile: deploy/Dockerfile.grafana
       args:
         GRAFANA_IMAGE: ${GRAFANA_BASE_IMAGE:-grafana/grafana:12.2.0}
@@ -13,13 +13,13 @@ services:
 
   geoip-map-api:
     build:
-      context: ${GEOIP_MAP_ROOT:-/opt/grafana-geoip-map}/geoip-service
+      context: ${GEOIP_MAP_ROOT:-.}/geoip-service
     restart: unless-stopped
     environment:
       GEOIP_DB_PATH: /data/GeoLite2-City.mmdb
       ALLOWED_ORIGINS: ${GRAFANA_PUBLIC_ORIGIN:-http://localhost:3000}
       MAX_BATCH_SIZE: ${GEOIP_MAX_BATCH_SIZE:-1000}
     volumes:
-      - ${GEOIP_MAP_ROOT:-/opt/grafana-geoip-map}/GeoLite2-City.mmdb:/data/GeoLite2-City.mmdb:ro
+      - ${GEOIP_MAP_ROOT:-.}/GeoLite2-City.mmdb:/data/GeoLite2-City.mmdb:ro
     ports:
       - 127.0.0.1:18080:8080

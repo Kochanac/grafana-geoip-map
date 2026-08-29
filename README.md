@@ -15,16 +15,24 @@
 Ниже предполагается, что:
 
 - существующая Grafana уже запускается через `docker compose`;
-- репозиторий будет размещён в `/opt/grafana-geoip-map`;
+- репозиторий клонируется рядом с существующим `docker-compose.yml`;
 - публичный адрес Grafana — `https://grafana.example.com`;
 - перед Grafana работает nginx или другой reverse proxy.
+
+Пример структуры локальных каталогов:
+
+```text
+grafana-deployment/
+├── docker-compose.yml
+└── grafana-geoip-map/
+```
 
 ### 1. Клонировать репозиторий
 
 ```bash
-cd /opt
+cd ./grafana-deployment
 git clone https://github.com/Kochanac/grafana-geoip-map.git
-cd /opt/grafana-geoip-map
+cd ./grafana-geoip-map
 ```
 
 Node.js на сервер устанавливать не требуется: frontend собирается внутри Docker.
@@ -37,13 +45,13 @@ Node.js на сервер устанавливать не требуется: fr
 4. Распаковать архив и положить файл сюда:
 
 ```text
-/opt/grafana-geoip-map/GeoLite2-City.mmdb
+./GeoLite2-City.mmdb
 ```
 
 Проверить:
 
 ```bash
-test -f /opt/grafana-geoip-map/GeoLite2-City.mmdb && echo "MMDB found"
+test -f ./GeoLite2-City.mmdb && echo "MMDB found"
 ```
 
 База не включена в репозиторий из-за условий лицензии MaxMind.
@@ -52,14 +60,16 @@ test -f /opt/grafana-geoip-map/GeoLite2-City.mmdb && echo "MMDB found"
 
 Плагин устанавливается в производный Docker image поверх вашего существующего образа. Данные и настройки Grafana при этом не изменяются.
 
-Создать `/opt/grafana-geoip-map/.env`:
+Находясь в каталоге `grafana-geoip-map`, создать локальный `.env`. Переменная `$PWD` автоматически запишет абсолютный путь текущего checkout:
 
-```dotenv
-GEOIP_MAP_ROOT=/opt/grafana-geoip-map
+```bash
+cat > .env <<EOF
+GEOIP_MAP_ROOT=$PWD
 GRAFANA_BASE_IMAGE=sha256:845d83e1cf13d8b78b3061c95de03424b5d275ab45ecfdcff9dfd4cbfcddf1a8
 GRAFANA_PUBLIC_ORIGIN=https://grafana.example.com
 GRAFANA_UNSIGNED_PLUGINS=local-geoipmap-panel
 GEOIP_MAX_BATCH_SIZE=1000
+EOF
 ```
 
 `GRAFANA_BASE_IMAGE` может быть обычным тегом, например `grafana/grafana:12.2.0`. Image ID работает, только если этот образ уже присутствует на Docker-хосте.
@@ -72,16 +82,15 @@ GRAFANA_UNSIGNED_PLUGINS=existing-plugin-panel,local-geoipmap-panel
 
 ### 4. Подключить override к существующему Compose
 
-Допустим, основной файл находится в `/opt/grafana/docker-compose.yml`, а сервис Grafana в нём называется `grafana`.
+Основной Compose-файл в примере находится на уровень выше: `../docker-compose.yml`. Сервис Grafana в нём должен называться `grafana`.
 
 Проверить итоговую конфигурацию:
 
 ```bash
-cd /opt/grafana-geoip-map
 docker compose \
   --env-file .env \
-  -f /opt/grafana/docker-compose.yml \
-  -f /opt/grafana-geoip-map/deploy/docker-compose.geoip.yml \
+  -f ../docker-compose.yml \
+  -f ./deploy/docker-compose.geoip.yml \
   config
 ```
 
@@ -91,9 +100,9 @@ docker compose \
 
 ```bash
 docker compose \
-  --env-file /opt/grafana-geoip-map/.env \
-  -f /opt/grafana/docker-compose.yml \
-  -f /opt/grafana-geoip-map/deploy/docker-compose.geoip.yml \
+  --env-file .env \
+  -f ../docker-compose.yml \
+  -f ./deploy/docker-compose.geoip.yml \
   up -d --build
 ```
 
@@ -180,9 +189,9 @@ GROUP BY public_ip;
 
 ```bash
 docker compose \
-  --env-file /opt/grafana-geoip-map/.env \
-  -f /opt/grafana/docker-compose.yml \
-  -f /opt/grafana-geoip-map/deploy/docker-compose.geoip.yml \
+  --env-file .env \
+  -f ../docker-compose.yml \
+  -f ./deploy/docker-compose.geoip.yml \
   ps
 ```
 
@@ -190,9 +199,9 @@ docker compose \
 
 ```bash
 docker compose \
-  --env-file /opt/grafana-geoip-map/.env \
-  -f /opt/grafana/docker-compose.yml \
-  -f /opt/grafana-geoip-map/deploy/docker-compose.geoip.yml \
+  --env-file .env \
+  -f ../docker-compose.yml \
+  -f ./deploy/docker-compose.geoip.yml \
   logs grafana geoip-map-api
 ```
 
@@ -221,13 +230,13 @@ curl -X POST https://grafana.example.com/geoip/v1/lookup \
 ## Обновление
 
 ```bash
-cd /opt/grafana-geoip-map
+cd ./grafana-geoip-map
 git pull
 
 docker compose \
   --env-file .env \
-  -f /opt/grafana/docker-compose.yml \
-  -f deploy/docker-compose.geoip.yml \
+  -f ../docker-compose.yml \
+  -f ./deploy/docker-compose.geoip.yml \
   up -d --build
 ```
 
@@ -236,8 +245,8 @@ docker compose \
 ```bash
 docker compose \
   --env-file .env \
-  -f /opt/grafana/docker-compose.yml \
-  -f deploy/docker-compose.geoip.yml \
+  -f ../docker-compose.yml \
+  -f ./deploy/docker-compose.geoip.yml \
   restart geoip-map-api
 ```
 
