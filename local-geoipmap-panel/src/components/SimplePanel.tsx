@@ -7,6 +7,8 @@ import { GeoJSONSource, LngLatBounds, Map as MapLibreMap, MapMouseEvent, StyleSp
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { GeoIPMapOptions } from '../types';
 
+declare const __webpack_public_path__: string;
+
 interface Props extends PanelProps<GeoIPMapOptions> {}
 
 interface GeoIPResult {
@@ -35,6 +37,8 @@ type MarkerCollection = GeoJSON.FeatureCollection<GeoJSON.Point, MarkerPropertie
 
 const SOURCE_ID = 'geoip-points';
 const LAYER_ID = 'geoip-markers';
+
+maplibregl.setWorkerUrl(`${__webpack_public_path__}maplibre-gl-worker.js`);
 
 const defaultMapStyle: StyleSpecification = {
   version: 8,

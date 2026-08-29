@@ -173,7 +173,13 @@ const config = async (env: Env): Promise<Configuration> => {
         entryOnly: true,
       }),
       new CopyWebpackPlugin({
-        patterns: copyFilePatterns,
+        patterns: [
+          ...copyFilePatterns,
+          {
+            from: path.resolve(process.cwd(), 'node_modules', 'maplibre-gl', 'dist', 'maplibre-gl-worker.mjs'),
+            to: 'maplibre-gl-worker.js',
+          },
+        ],
       }),
       // Replace certain template-variables in the README and plugin.json
       new ReplaceInFileWebpackPlugin([
