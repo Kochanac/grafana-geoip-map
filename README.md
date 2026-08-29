@@ -1,27 +1,29 @@
 # Grafana GeoIP Map
 
+[Русская версия](README.ru.md)
+
 ![Grafana GeoIP Map panel](docs/grafana-geoip-map.png)
 
-Панель для Grafana, которая получает IP-адреса из существующего datasource, определяет координаты через локальную базу MaxMind и отображает точки на карте. Менять MySQL datasource и сохранять координаты в базе не нужно.
+A Grafana panel that reads IP addresses from an existing data source, resolves their coordinates through a local MaxMind database, and displays them on a map. You do not need to modify your MySQL data source or store coordinates in the database.
 
-Проект состоит из:
+The project consists of:
 
-- `local-geoipmap-panel` — панель Grafana на React и MapLibre;
-- `geoip-service` — локальный HTTP API на Go, читающий `GeoLite2-City.mmdb`;
-- `deploy` — файлы для добавления решения в существующий Docker Compose deployment.
+- `local-geoipmap-panel` — a Grafana panel built with React and MapLibre;
+- `geoip-service` — a local Go HTTP API that reads `GeoLite2-City.mmdb`;
+- `deploy` — files for adding the solution to an existing Docker Compose deployment.
 
-Поддерживаемая версия: Grafana 12.2.0 и новее.
+Supported version: Grafana 12.2.0 and newer.
 
-## Установка в существующий Docker Compose deployment
+## Installation in an existing Docker Compose deployment
 
-Ниже предполагается, что:
+The instructions below assume that:
 
-- существующая Grafana уже запускается через `docker compose`;
-- репозиторий клонируется рядом с существующим `docker-compose.yml`;
-- публичный адрес Grafana — `https://grafana.example.com`;
-- перед Grafana работает nginx или другой reverse proxy.
+- Grafana is already running through `docker compose`;
+- this repository is cloned next to the existing `docker-compose.yml`;
+- the public Grafana URL is `https://grafana.example.com`;
+- nginx or another reverse proxy is running in front of Grafana.
 
-Пример структуры локальных каталогов:
+Example local directory structure:
 
 ```text
 grafana-deployment/
@@ -29,7 +31,7 @@ grafana-deployment/
 └── grafana-geoip-map/
 ```
 
-### 1. Клонировать репозиторий
+### 1. Clone the repository
 
 ```bash
 cd ./grafana-deployment
@@ -37,32 +39,32 @@ git clone https://github.com/Kochanac/grafana-geoip-map.git
 cd ./grafana-geoip-map
 ```
 
-Node.js на сервер устанавливать не требуется: frontend собирается внутри Docker.
+Node.js does not need to be installed on the server: the frontend is built inside Docker.
 
-### 2. Скачать базу MaxMind
+### 2. Download the MaxMind database
 
-1. Зарегистрироваться в [MaxMind](https://www.maxmind.com/en/geolite2/signup).
-2. Открыть **Download Databases**.
-3. Скачать **GeoLite2 City** в формате `MMDB`.
-4. Распаковать архив и положить файл сюда:
+1. Register with [MaxMind](https://www.maxmind.com/en/geolite2/signup).
+2. Open **Download Databases**.
+3. Download **GeoLite2 City** in `MMDB` format.
+4. Extract the archive and place the file here:
 
 ```text
 ./GeoLite2-City.mmdb
 ```
 
-Проверить:
+Verify it:
 
 ```bash
 test -f ./GeoLite2-City.mmdb && echo "MMDB found"
 ```
 
-База не включена в репозиторий из-за условий лицензии MaxMind.
+The database is not included in this repository because of the MaxMind license terms.
 
-### 3. Указать исходный образ Grafana
+### 3. Specify the base Grafana image
 
-Плагин устанавливается в производный Docker image поверх вашего существующего образа. Данные и настройки Grafana при этом не изменяются.
+The plugin is installed in a derived Docker image based on your existing image. Your Grafana data and configuration remain unchanged.
 
-В `Dockerfile FROM` нельзя передавать локальный image ID вида `sha256:...`: BuildKit воспримет его как имя репозитория и попробует скачать из Docker Hub. Сначала присвоить существующему образу локальный тег:
+You cannot pass a local image ID such as `sha256:...` to `Dockerfile FROM`: BuildKit interprets it as a repository name and attempts to pull it from Docker Hub. Assign a local tag to the existing image first:
 
 ```bash
 docker tag \
@@ -72,7 +74,7 @@ docker tag \
 docker image inspect grafana-base-local:12.2.0 --format '{{.Id}}'
 ```
 
-Находясь в каталоге `grafana-geoip-map`, создать локальный `.env`. Переменная `$PWD` автоматически запишет абсолютный путь текущего checkout:
+While in the `grafana-geoip-map` directory, create a local `.env` file. `$PWD` writes the absolute path of the current checkout automatically:
 
 ```bash
 cat > .env <<EOF
@@ -84,21 +86,21 @@ GEOIP_MAX_BATCH_SIZE=1000
 EOF
 ```
 
-Вместо локального тега можно указать исходный registry-тег, например `grafana/grafana:12.2.0`.
+Instead of a local tag, you can specify the original registry tag, such as `grafana/grafana:12.2.0`.
 
-Если в Grafana уже разрешены другие unsigned plugins, перечислить все ID через запятую:
+If Grafana already allows other unsigned plugins, list every plugin ID separated by commas:
 
 ```dotenv
 GRAFANA_UNSIGNED_PLUGINS=existing-plugin-panel,local-geoipmap-panel
 ```
 
-### 4. Подключить override к существующему Compose
+### 4. Add the override to the existing Compose deployment
 
-Основной Compose-файл в примере находится на уровень выше: `../docker-compose.yml`. Сервис Grafana в нём должен называться `grafana`.
+In this example, the main Compose file is one directory above at `../docker-compose.yml`. Its Grafana service must be named `grafana`.
 
-#### Вариант A: отдельный override-файл
+#### Option A: use a separate override file
 
-Проверить итоговую конфигурацию:
+Verify the resulting configuration:
 
 ```bash
 docker compose \
@@ -108,9 +110,9 @@ docker compose \
   config
 ```
 
-Важно: override рассчитан на сервис с именем `grafana`. Если ваш сервис называется иначе, измените имя в `deploy/docker-compose.geoip.yml`.
+Important: the override expects a service named `grafana`. If your service has a different name, change the service name in `deploy/docker-compose.geoip.yml`.
 
-Собрать image с панелью и запустить deployment:
+Build the image with the panel and start the deployment:
 
 ```bash
 docker compose \
@@ -120,23 +122,23 @@ docker compose \
   up -d --build
 ```
 
-#### Вариант B: дописать сервисы в основной docker-compose.yml
+#### Option B: add the services to the main docker-compose.yml
 
-Вместо подключения override можно открыть существующий `../docker-compose.yml` и дополнить сервис `grafana`, сохранив все его текущие настройки:
+Instead of using the override, open the existing `../docker-compose.yml` and extend the `grafana` service while preserving all of its current settings:
 
 ```yaml
 services:
   grafana:
-    # Остальные существующие настройки Grafana оставить без изменений.
+    # Keep all other existing Grafana settings unchanged.
     image: grafana-with-geoip-map:12.2.0
     build:
       context: ./grafana-geoip-map
       dockerfile: deploy/Dockerfile.grafana
       args:
-        # Локальный image ID необходимо предварительно тегировать.
+        # A local image ID must be tagged first.
         GRAFANA_IMAGE: grafana-base-local:12.2.0
     environment:
-      # Сохранить остальные существующие environment-переменные.
+      # Keep all other existing environment variables.
       GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS: local-geoipmap-panel
     depends_on:
       - geoip-map-api
@@ -155,9 +157,9 @@ services:
       - "127.0.0.1:18080:8080"
 ```
 
-Если `GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS` уже задан, добавить `local-geoipmap-panel` в существующий список через запятую, а не заменять его.
+If `GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS` is already set, append `local-geoipmap-panel` to the existing comma-separated list instead of replacing it.
 
-Проверить и применить изменённый Compose:
+Verify and apply the updated Compose configuration:
 
 ```bash
 cd ..
@@ -165,22 +167,22 @@ docker compose config
 docker compose up -d --build
 ```
 
-При сборке:
+During the build:
 
-1. Docker собирает frontend-плагин;
-2. копирует `dist` в `/usr/share/grafana/external-plugins/local-geoipmap-panel`;
-3. запускает локальный GeoIP API;
-4. перезапускает Grafana с разрешённым unsigned plugin.
+1. Docker builds the frontend plugin;
+2. copies `dist` to `/usr/share/grafana/external-plugins/local-geoipmap-panel`;
+3. starts the local GeoIP API;
+4. restarts Grafana with the unsigned plugin enabled.
 
-Отдельный каталог нужен потому, что распространённый bind mount
-`./grafana/data:/var/lib/grafana` скрывает содержимое `/var/lib/grafana`
-из Docker image.
+A separate directory is required because the common
+`./grafana/data:/var/lib/grafana` bind mount hides the contents of
+`/var/lib/grafana` from the Docker image.
 
-### 5. Подключить GeoIP API к reverse proxy
+### 5. Connect the GeoIP API to the reverse proxy
 
-Код панели выполняется в браузере пользователя. Адрес вида `http://geoip-map-api:8080` работать не будет: Docker DNS доступен контейнерам, но не браузеру.
+The panel code runs in the user's browser. An address such as `http://geoip-map-api:8080` does not work there because Docker DNS is available to containers, not to the browser.
 
-GeoIP API публикуется только на `127.0.0.1:18080`. Для nginx, работающего на Docker-хосте, добавить:
+The GeoIP API is published only on `127.0.0.1:18080`. Add the following configuration to nginx running on the Docker host:
 
 ```nginx
 location /geoip/ {
@@ -191,42 +193,42 @@ location /geoip/ {
 }
 ```
 
-Проверить конфигурацию и перезагрузить nginx:
+Validate the configuration and reload nginx:
 
 ```bash
 sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-Проверить API:
+Check the API:
 
 ```bash
 curl https://grafana.example.com/geoip/health
 ```
 
-Ожидаемый ответ:
+Expected response:
 
 ```json
 {"status":"ok"}
 ```
 
-Если reverse proxy сам работает в Docker Compose, можно не публиковать порт `18080`, а направить `proxy_pass` на `http://geoip-map-api:8080/` внутри общей Docker network.
+If the reverse proxy also runs in Docker Compose, you can avoid publishing port `18080` and point `proxy_pass` to `http://geoip-map-api:8080/` on a shared Docker network.
 
-### 6. Настроить панель в Grafana
+### 6. Configure the panel in Grafana
 
-1. Открыть dashboard.
-2. Нажать **Add visualization**.
-3. Выбрать существующий MySQL datasource.
-4. Выбрать визуализацию **GeoIP Map**.
-5. В **GeoIP service URL** указать:
+1. Open a dashboard.
+2. Click **Add visualization**.
+3. Select the existing MySQL data source.
+4. Select the **GeoIP Map** visualization.
+5. Enter the following value in **GeoIP service URL**:
 
 ```text
 https://grafana.example.com/geoip
 ```
 
-6. В **IP field** указать имя колонки с IP.
+6. Set **IP field** to the name of the column containing IP addresses.
 
-Пример MySQL-запроса:
+Example MySQL query:
 
 ```sql
 SELECT
@@ -237,19 +239,19 @@ WHERE $__timeFilter(created_at)
 GROUP BY public_ip;
 ```
 
-Настройки панели:
+Panel settings:
 
 - **IP field**: `ip`;
 - **Value field**: `requests`;
 - **GeoIP service URL**: `https://grafana.example.com/geoip`;
-- **Lookup batch size**: не больше `GEOIP_MAX_BATCH_SIZE`; панель загрузит все
-  уникальные IP последовательными запросами указанного размера.
+- **Lookup batch size**: no greater than `GEOIP_MAX_BATCH_SIZE`; the panel loads
+  all unique IPs in sequential requests of the specified size.
 
-Панель поддерживает публичные IPv4 и IPv6. Приватные, loopback и некорректные адреса игнорируются.
+The panel supports public IPv4 and IPv6 addresses. Private, loopback, and invalid addresses are ignored.
 
-## Проверка и диагностика
+## Verification and troubleshooting
 
-Состояние контейнеров:
+Check container status:
 
 ```bash
 docker compose \
@@ -259,7 +261,7 @@ docker compose \
   ps
 ```
 
-Логи:
+View logs:
 
 ```bash
 docker compose \
@@ -269,7 +271,7 @@ docker compose \
   logs grafana geoip-map-api
 ```
 
-Проверка lookup:
+Test a lookup:
 
 ```bash
 curl -X POST https://grafana.example.com/geoip/v1/lookup \
@@ -277,21 +279,21 @@ curl -X POST https://grafana.example.com/geoip/v1/lookup \
   -d '{"ips":["8.8.8.8","1.1.1.1"]}'
 ```
 
-Если панель отсутствует в списке:
+If the panel is missing from the visualization list:
 
-1. убедиться, что контейнер Grafana был пересоздан;
-2. проверить `GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS`;
-3. проверить наличие `/usr/share/grafana/external-plugins/local-geoipmap-panel/plugin.json` внутри контейнера;
-4. посмотреть логи Grafana.
+1. make sure the Grafana container was recreated;
+2. check `GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS`;
+3. verify that `/usr/share/grafana/external-plugins/local-geoipmap-panel/plugin.json` exists inside the container;
+4. inspect the Grafana logs.
 
-Если браузер показывает `Failed to fetch`:
+If the browser reports `Failed to fetch`:
 
-1. проверить `curl https://grafana.example.com/geoip/health`;
-2. убедиться, что URL панели использует HTTPS вместе с HTTPS Grafana;
-3. проверить `GRAFANA_PUBLIC_ORIGIN`;
-4. открыть DevTools браузера и проверить CORS/Network ошибки.
+1. run `curl https://grafana.example.com/geoip/health`;
+2. make sure the panel URL uses HTTPS when Grafana uses HTTPS;
+3. check `GRAFANA_PUBLIC_ORIGIN`;
+4. open browser DevTools and inspect CORS and Network errors.
 
-## Обновление
+## Updating
 
 ```bash
 cd ./grafana-geoip-map
@@ -304,7 +306,7 @@ docker compose \
   up -d --build
 ```
 
-Файл `GeoLite2-City.mmdb` необходимо регулярно обновлять отдельно. После замены файла перезапустить API:
+The `GeoLite2-City.mmdb` file must be updated separately on a regular basis. Restart the API after replacing it:
 
 ```bash
 docker compose \
@@ -314,4 +316,4 @@ docker compose \
   restart geoip-map-api
 ```
 
-GeoLite2 возвращает приблизительное местоположение и не предназначен для определения конкретного адреса или домохозяйства.
+GeoLite2 returns an approximate location and must not be used to identify a specific address or household.
