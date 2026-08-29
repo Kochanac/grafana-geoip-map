@@ -1,0 +1,19 @@
+services:
+  grafana:
+    extends:
+      file: .config/docker-compose-base.yaml
+      service: grafana
+    depends_on:
+      - geoip
+
+  geoip:
+    build:
+      context: ../geoip-service
+    ports:
+      - 8080:8080
+    environment:
+      GEOIP_DB_PATH: /data/GeoLite2-City.mmdb
+      ALLOWED_ORIGINS: http://localhost:3000
+      MAX_BATCH_SIZE: 1000
+    volumes:
+      - ./geoip-data/GeoLite2-City.mmdb:/data/GeoLite2-City.mmdb:ro
