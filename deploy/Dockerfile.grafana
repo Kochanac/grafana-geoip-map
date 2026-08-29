@@ -1,0 +1,18 @@
+ARG NODE_IMAGE=node:24-bookworm
+ARG GRAFANA_IMAGE=grafana/grafana:12.2.0
+FROM ${NODE_IMAGE} AS plugin-build
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /plugin
+COPY local-geoipmap-panel/package.json local-geoipmap-panel/package-lock.json local-geoipmap-panel/.npmrc ./
+RUN npm ci --allow-git=all
+
+COPY local-geoipmap-panel/ ./
+RUN npm run build
+
+FROM ${GRAFANA_IMAGE}
+
+COPY --from=plugin-build --chown=472:0 /plugin/dist/ /var/lib/grafana/plugins/local-geoipmap-panel/

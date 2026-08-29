@@ -1,0 +1,6 @@
+.git
+**/node_modules
+**/dist
+**/.eslintcache
+**/*.mmdb
+geoip-service/geoip-service
