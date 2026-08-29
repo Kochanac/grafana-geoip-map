@@ -60,71 +60,11 @@ test -f ./GeoLite2-City.mmdb && echo "MMDB found"
 
 База не включена в репозиторий из-за условий лицензии MaxMind.
 
-### 3. Указать исходный образ Grafana
+### 3. Добавить сервисы в существующий docker-compose.yml
 
-Плагин устанавливается в производный Docker image поверх вашего существующего образа. Данные и настройки Grafana при этом не изменяются.
+Плагин устанавливается в производный Docker image поверх вашего существующего образа Grafana. Данные и настройки Grafana при этом не изменяются.
 
-В `Dockerfile FROM` нельзя передавать локальный image ID вида `sha256:...`: BuildKit воспримет его как имя репозитория и попробует скачать из Docker Hub. Сначала присвоить существующему образу локальный тег:
-
-```bash
-docker tag \
-  sha256:845d83e1cf13d8b78b3061c95de03424b5d275ab45ecfdcff9dfd4cbfcddf1a8 \
-  grafana-base-local:12.2.0
-
-docker image inspect grafana-base-local:12.2.0 --format '{{.Id}}'
-```
-
-Находясь в каталоге `grafana-geoip-map`, создать локальный `.env`. Переменная `$PWD` автоматически запишет абсолютный путь текущего checkout:
-
-```bash
-cat > .env <<EOF
-GEOIP_MAP_ROOT=$PWD
-GRAFANA_BASE_IMAGE=grafana-base-local:12.2.0
-GRAFANA_PUBLIC_ORIGIN=https://grafana.example.com
-GRAFANA_UNSIGNED_PLUGINS=local-geoipmap-panel
-GEOIP_MAX_BATCH_SIZE=1000
-EOF
-```
-
-Вместо локального тега можно указать исходный registry-тег, например `grafana/grafana:12.2.0`.
-
-Если в Grafana уже разрешены другие unsigned plugins, перечислить все ID через запятую:
-
-```dotenv
-GRAFANA_UNSIGNED_PLUGINS=existing-plugin-panel,local-geoipmap-panel
-```
-
-### 4. Подключить override к существующему Compose
-
-Основной Compose-файл в примере находится на уровень выше: `../docker-compose.yml`. Сервис Grafana в нём должен называться `grafana`.
-
-#### Вариант A: отдельный override-файл
-
-Проверить итоговую конфигурацию:
-
-```bash
-docker compose \
-  --env-file .env \
-  -f ../docker-compose.yml \
-  -f ./deploy/docker-compose.geoip.yml \
-  config
-```
-
-Важно: override рассчитан на сервис с именем `grafana`. Если ваш сервис называется иначе, измените имя в `deploy/docker-compose.geoip.yml`.
-
-Собрать image с панелью и запустить deployment:
-
-```bash
-docker compose \
-  --env-file .env \
-  -f ../docker-compose.yml \
-  -f ./deploy/docker-compose.geoip.yml \
-  up -d --build
-```
-
-#### Вариант B: дописать сервисы в основной docker-compose.yml
-
-Вместо подключения override можно открыть существующий `../docker-compose.yml` и дополнить сервис `grafana`, сохранив все его текущие настройки:
+Открыть существующий `docker-compose.yml` и дополнить сервис `grafana`, сохранив все его текущие настройки. В `GRAFANA_IMAGE` указать текущий тег образа Grafana, например `grafana/grafana:12.2.0`.
 
 ```yaml
 services:
@@ -135,8 +75,7 @@ services:
       context: ./grafana-geoip-map
       dockerfile: deploy/Dockerfile.grafana
       args:
-        # Локальный image ID необходимо предварительно тегировать.
-        GRAFANA_IMAGE: grafana-base-local:12.2.0
+        GRAFANA_IMAGE: grafana/grafana:12.2.0
     environment:
       # Сохранить остальные существующие environment-переменные.
       GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS: local-geoipmap-panel
@@ -178,7 +117,49 @@ docker compose up -d --build
 `./grafana/data:/var/lib/grafana` скрывает содержимое `/var/lib/grafana`
 из Docker image.
 
-### 5. Подключить GeoIP API к reverse proxy
+#### Альтернатива: отдельный override-файл
+
+Создать локальный `.env` в каталоге `grafana-geoip-map`. Переменная `$PWD` автоматически запишет абсолютный путь текущего checkout:
+
+```bash
+cat > .env <<EOF
+GEOIP_MAP_ROOT=$PWD
+GRAFANA_BASE_IMAGE=grafana/grafana:12.2.0
+GRAFANA_PUBLIC_ORIGIN=https://grafana.example.com
+GRAFANA_UNSIGNED_PLUGINS=local-geoipmap-panel
+GEOIP_MAX_BATCH_SIZE=1000
+EOF
+```
+
+Если в Grafana уже разрешены другие unsigned plugins, перечислить все ID через запятую:
+
+```dotenv
+GRAFANA_UNSIGNED_PLUGINS=existing-plugin-panel,local-geoipmap-panel
+```
+
+Override рассчитан на основной Compose-файл `../docker-compose.yml` и сервис Grafana с именем `grafana`. Если ваш сервис называется иначе, измените его имя в `deploy/docker-compose.geoip.yml`.
+
+Проверить итоговую конфигурацию:
+
+```bash
+docker compose \
+  --env-file .env \
+  -f ../docker-compose.yml \
+  -f ./deploy/docker-compose.geoip.yml \
+  config
+```
+
+Собрать image с панелью и запустить deployment:
+
+```bash
+docker compose \
+  --env-file .env \
+  -f ../docker-compose.yml \
+  -f ./deploy/docker-compose.geoip.yml \
+  up -d --build
+```
+
+### 4. Подключить GeoIP API к reverse proxy
 
 Код панели выполняется в браузере пользователя. Адрес вида `http://geoip-map-api:8080` работать не будет: Docker DNS доступен контейнерам, но не браузеру.
 
@@ -214,7 +195,7 @@ curl https://grafana.example.com/geoip/health
 
 Если reverse proxy сам работает в Docker Compose, можно не публиковать порт `18080`, а направить `proxy_pass` на `http://geoip-map-api:8080/` внутри общей Docker network.
 
-### 6. Настроить панель в Grafana
+### 5. Настроить панель в Grafana
 
 1. Открыть dashboard.
 2. Нажать **Add visualization**.
@@ -254,21 +235,14 @@ GROUP BY public_ip;
 Состояние контейнеров:
 
 ```bash
-docker compose \
-  --env-file .env \
-  -f ../docker-compose.yml \
-  -f ./deploy/docker-compose.geoip.yml \
-  ps
+cd ..
+docker compose ps
 ```
 
 Логи:
 
 ```bash
-docker compose \
-  --env-file .env \
-  -f ../docker-compose.yml \
-  -f ./deploy/docker-compose.geoip.yml \
-  logs grafana geoip-map-api
+docker compose logs grafana geoip-map-api
 ```
 
 Проверка lookup:
@@ -298,22 +272,15 @@ curl -X POST https://grafana.example.com/geoip/v1/lookup \
 ```bash
 cd ./grafana-geoip-map
 git pull
+cd ..
 
-docker compose \
-  --env-file .env \
-  -f ../docker-compose.yml \
-  -f ./deploy/docker-compose.geoip.yml \
-  up -d --build
+docker compose up -d --build
 ```
 
 Файл `GeoLite2-City.mmdb` необходимо регулярно обновлять отдельно. После замены файла перезапустить API:
 
 ```bash
-docker compose \
-  --env-file .env \
-  -f ../docker-compose.yml \
-  -f ./deploy/docker-compose.geoip.yml \
-  restart geoip-map-api
+docker compose restart geoip-map-api
 ```
 
 GeoLite2 возвращает приблизительное местоположение и не предназначен для определения конкретного адреса или домохозяйства.
