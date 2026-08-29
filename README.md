@@ -166,9 +166,13 @@ docker compose up -d --build
 При сборке:
 
 1. Docker собирает frontend-плагин;
-2. копирует `dist` в `/var/lib/grafana/plugins/local-geoipmap-panel`;
+2. копирует `dist` в `/usr/share/grafana/external-plugins/local-geoipmap-panel`;
 3. запускает локальный GeoIP API;
 4. перезапускает Grafana с разрешённым unsigned plugin.
+
+Отдельный каталог нужен потому, что распространённый bind mount
+`./grafana/data:/var/lib/grafana` скрывает содержимое `/var/lib/grafana`
+из Docker image.
 
 ### 5. Подключить GeoIP API к reverse proxy
 
@@ -274,7 +278,7 @@ curl -X POST https://grafana.example.com/geoip/v1/lookup \
 
 1. убедиться, что контейнер Grafana был пересоздан;
 2. проверить `GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS`;
-3. проверить наличие `/var/lib/grafana/plugins/local-geoipmap-panel/plugin.json` внутри контейнера;
+3. проверить наличие `/usr/share/grafana/external-plugins/local-geoipmap-panel/plugin.json` внутри контейнера;
 4. посмотреть логи Grafana.
 
 Если браузер показывает `Failed to fetch`:

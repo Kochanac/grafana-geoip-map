@@ -15,4 +15,6 @@ RUN npm run build
 
 FROM ${GRAFANA_IMAGE}
 
-COPY --from=plugin-build --chown=472:0 /plugin/dist/ /var/lib/grafana/plugins/local-geoipmap-panel/
+ENV GF_PATHS_PLUGINS=/usr/share/grafana/external-plugins
+
+COPY --from=plugin-build --chown=472:0 /plugin/dist/ /usr/share/grafana/external-plugins/local-geoipmap-panel/
