@@ -84,6 +84,8 @@ GRAFANA_UNSIGNED_PLUGINS=existing-plugin-panel,local-geoipmap-panel
 
 Основной Compose-файл в примере находится на уровень выше: `../docker-compose.yml`. Сервис Grafana в нём должен называться `grafana`.
 
+#### Вариант A: отдельный override-файл
+
 Проверить итоговую конфигурацию:
 
 ```bash
@@ -104,6 +106,51 @@ docker compose \
   -f ../docker-compose.yml \
   -f ./deploy/docker-compose.geoip.yml \
   up -d --build
+```
+
+#### Вариант B: дописать сервисы в основной docker-compose.yml
+
+Вместо подключения override можно открыть существующий `../docker-compose.yml` и дополнить сервис `grafana`, сохранив все его текущие настройки:
+
+```yaml
+services:
+  grafana:
+    # Остальные существующие настройки Grafana оставить без изменений.
+    image: grafana-with-geoip-map:12.2.0
+    build:
+      context: ./grafana-geoip-map
+      dockerfile: deploy/Dockerfile.grafana
+      args:
+        # Можно указать тег или локальный image ID существующей Grafana.
+        GRAFANA_IMAGE: sha256:845d83e1cf13d8b78b3061c95de03424b5d275ab45ecfdcff9dfd4cbfcddf1a8
+    environment:
+      # Сохранить остальные существующие environment-переменные.
+      GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS: local-geoipmap-panel
+    depends_on:
+      - geoip-map-api
+
+  geoip-map-api:
+    build:
+      context: ./grafana-geoip-map/geoip-service
+    restart: unless-stopped
+    environment:
+      GEOIP_DB_PATH: /data/GeoLite2-City.mmdb
+      ALLOWED_ORIGINS: https://grafana.example.com
+      MAX_BATCH_SIZE: 1000
+    volumes:
+      - ./grafana-geoip-map/GeoLite2-City.mmdb:/data/GeoLite2-City.mmdb:ro
+    ports:
+      - "127.0.0.1:18080:8080"
+```
+
+Если `GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS` уже задан, добавить `local-geoipmap-panel` в существующий список через запятую, а не заменять его.
+
+Проверить и применить изменённый Compose:
+
+```bash
+cd ..
+docker compose config
+docker compose up -d --build
 ```
 
 При сборке:
